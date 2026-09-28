@@ -15,8 +15,9 @@ shown to partners on request (Section 14).
 Claude Code checks file paths against `Read(...)` and `Edit(...)` rules only.
 
 - **Read rules** cover the Read tool and, on a best-effort basis, the other tools that read
-  files, such as Grep and Glob. A Read deny rule also blocks the Edit and Write tools on
-  the same path, including creating a file there; it does not cover NotebookEdit.
+  files, such as Grep and Glob, and `@` mentions in prompts. A Read deny rule also blocks
+  the Edit and Write tools on the same path, including creating a file there; it does not
+  cover NotebookEdit.
 - **Edit rules** cover every built-in tool that edits files.
 - **Grep and Glob rules have no effect.** A path rule written for `Grep(...)` or `Glob(...)`
   is accepted but never consulted, and Claude Code warns about it at start-up. Protection
@@ -41,10 +42,11 @@ user settings it points into `~/.claude/`.
 
 ## 2. User settings (`~/.claude/settings.json`)
 
-The safeguard-relevant part of the file that passed the test, as supplied by the project
-lead on 28 September 2026. Two changes were made for this record: the Windows user name
-in the hook path is replaced by `<user>`, and three keys unrelated to data protection
-(`enableWorkflows`, `agentPushNotifEnabled`, `extraKnownMarketplaces`) are omitted.
+The safeguard-relevant part of the file that passed the test of 28 September 2026 (section
+4), confirmed on the laptop that day. Two changes were made for this record: the Windows
+user name in the hook path is replaced by `<user>`, and three keys unrelated to data
+protection (`enableWorkflows`, `agentPushNotifEnabled`, `extraKnownMarketplaces`) are
+omitted.
 
 ```json
 {
@@ -56,14 +58,20 @@ in the hook path is replaced by `<user>`, and three keys unrelated to data prote
     "deny": [
       "Read(~/nansen_data/**)",
       "Edit(~/nansen_data/**)",
+      "Read(//**/nansen_data/**)",
+      "Edit(//**/nansen_data/**)",
       "Read(//**/*.duckdb)",
+      "Edit(//**/*.duckdb)",
       "Read(//**/*.duckdb.wal)",
+      "Edit(//**/*.duckdb.wal)",
       "Read(//**/*.duckdb.backup)",
+      "Edit(//**/*.duckdb.backup)",
       "Read(//**/IMR_biotic_BES_database/**)",
-      "Grep(**/IMR_biotic_BES_database/**)",
-      "Glob(**/IMR_biotic_BES_database/**)",
+      "Edit(//**/IMR_biotic_BES_database/**)",
       "Read(//**/NansenXMLs/**)",
-      "Read(//**/OneDrive_1_05-07-2026/**)"
+      "Edit(//**/NansenXMLs/**)",
+      "Read(//**/OneDrive_1_05-07-2026/**)",
+      "Edit(//**/OneDrive_1_05-07-2026/**)"
     ]
   },
   "hooks": {
@@ -102,13 +110,12 @@ What each part does:
 
 - **`env`** switches off the feedback survey and the `/feedback` command (layer 0). The
   repository's `.claude/settings.json` sets the same values for cloud sessions.
-- **`~/nansen_data/**`** is this project's data zone, denied to both reading and editing.
-- **The `//**/` rules** deny reading DuckDB files anywhere, and the BAIT database, the
-  Nansen XML folder and a downloaded OneDrive folder on any drive. Because a Read deny rule
-  also blocks Edit and Write, these paths are protected against the file tools except
-  NotebookEdit.
-- **The `Grep(...)` and `Glob(...)` rules** have no effect (section 1). The BAIT database
-  folder is protected by its `Read(//**/...)` rule.
+- **`nansen_data`** is this project's data zone. It is denied to reading and editing both
+  in the home folder (`~/`) and on any drive (`//**/`), so that it stays protected if it
+  moves.
+- **The other `//**/` rules** deny reading and editing DuckDB files anywhere, and the BAIT
+  database, the Nansen XML folder and a downloaded OneDrive folder on any drive. Each
+  `Read` rule has a matching `Edit` rule, so NotebookEdit is covered too.
 - **The hooks** run BAIT's egress guard before and after tools that can send content out
   of the machine. The guard belongs to BAIT's installation, outside this repository, and
   its script has not been reviewed as part of this project. The specification does not
@@ -116,43 +123,16 @@ What each part does:
 
 User settings stay on the laptop and do not reach cloud sessions.
 
-### Corrected deny list, pending the canary test
-
-This version responds to points 2 to 4 of section 5: it removes the inactive `Grep` and
-`Glob` rules, gives every `Read` rule a matching `Edit` rule (closing the NotebookEdit
-gap), and adds `//**/nansen_data/**` so that the data zone stays protected if it moves to
-another drive. The rest of the file is unchanged. It replaces the version above as the
-record once it has passed the test in [`safeguard-test/`](safeguard-test/README.md).
-
-```json
-"deny": [
-  "Read(~/nansen_data/**)",
-  "Edit(~/nansen_data/**)",
-  "Read(//**/nansen_data/**)",
-  "Edit(//**/nansen_data/**)",
-  "Read(//**/*.duckdb)",
-  "Edit(//**/*.duckdb)",
-  "Read(//**/*.duckdb.wal)",
-  "Edit(//**/*.duckdb.wal)",
-  "Read(//**/*.duckdb.backup)",
-  "Edit(//**/*.duckdb.backup)",
-  "Read(//**/IMR_biotic_BES_database/**)",
-  "Edit(//**/IMR_biotic_BES_database/**)",
-  "Read(//**/NansenXMLs/**)",
-  "Edit(//**/NansenXMLs/**)",
-  "Read(//**/OneDrive_1_05-07-2026/**)",
-  "Edit(//**/OneDrive_1_05-07-2026/**)"
-]
-```
+**History.** The version in place before 28 September 2026 denied only reading for the
+DuckDB files and the BAIT, XML and OneDrive folders, had no `//**/nansen_data/**` rules,
+and included a `Grep(...)` and a `Glob(...)` rule, which had no effect. It was replaced
+after the review recorded in section 5.
 
 ## 3. Local project settings (`.claude/settings.local.json`)
 
 This file sits in the repository folder on the laptop and is never committed. It makes a
-local session opened by mistake read-only for code and unable to run anything.
-
-> **To be completed.** The content below is reconstructed from the project lead's
-> description, with the key placed where the Claude Code documentation puts it. It should
-> be replaced by a verbatim copy of the file that passed the test.
+local session opened by mistake read-only for code and unable to run anything. The
+content below was confirmed verbatim on the laptop on 28 September 2026.
 
 ```json
 {
@@ -166,58 +146,111 @@ local session opened by mistake read-only for code and unable to run anything.
 }
 ```
 
-- **`"Bash"` and `"PowerShell"`** without a pattern deny every shell command.
+- **`"Bash"` and `"PowerShell"`** without a pattern remove the shell tools from the session
+  altogether.
 - **`blockReadsOutsideWorkingDirectories`** makes the file tools refuse paths outside the
   session's working directories in every permission mode. It covers data folders that no
   deny rule names.
 
+**The session must run in the folder itself.** The desktop app can run a session in a
+separate working copy (a Git worktree). This file is not committed, so it would not be
+present in such a copy, and neither the shell block nor the fence would apply. The canary
+procedure checks the working directory before probing; anyone opening a local session on
+this repository should make sure it is not a worktree.
+
 ## 4. The canary test
 
 The test shows that a local session in the repository can neither open the data zone nor
-run commands. Repeat it after any change to these settings, after a Claude Code update,
-and on every new machine.
+run commands, and that the user-level deny rules hold on their own. Repeat it after any
+change to these settings, after a Claude Code or desktop app update, and on every new
+machine. The procedure and its scripts are in
+[`safeguard-test/README.md`](safeguard-test/README.md).
 
-**Procedure.** The full procedure, with the scripts that create, check and remove the
-canaries, is in [`safeguard-test/README.md`](safeguard-test/README.md). It runs in two
-phases: Phase A in the repository, where the full configuration applies (the M0
-acceptance check), and Phase B in an empty folder with the shell switched off, which tests
-each user-level deny rule without the working-directory fence. It covers every protected
-folder and the DuckDB file types, and checks the transcripts for leaked tokens.
+### Test of 28 September 2026
 
-**The first test** used a single canary, `~/nansen_data/CANARY.txt`, and three probes: read
-the canary, list the data folder, run a command. All three had to be refused by the
-permission system, with no token in the session. A refusal that Claude gives of its own
-accord, without the permission system blocking the tool call, does not count as a pass.
+**Conditions.** Windows 11 Enterprise, with PowerShell in Constrained Language Mode
+(enforced on the machine). Sessions run in the Claude desktop app, version 2.9939.2
+(d3e504), built 24 September 2026; the app does not show the bundled Claude Code version
+separately. Settings as in sections 2 and 3. The folder `OneDrive_1_05-07-2026` no longer
+exists on the laptop, so it was left out of the test (`-Skip`); its deny rules remain in
+place. Tested by the project lead, guided from a cloud session.
 
-**Results.**
+**Phase A: a local session in the repository.** The working directory was confirmed as
+the repository folder itself, not a worktree.
 
-| Date | Claude Code version | OS | Read canary | List folder | Run command | Tested by |
+| Probe | What it tests | Outcome |
+| --- | --- | --- |
+| `@` mention of the `nansen_data` canary | Read rule applied to `@` mentions | Refused: the file was not attached |
+| Read the `nansen_data` canary | Instruction layer | Claude declined, citing `CLAUDE.md`; no tool call |
+| Read the `IMR_biotic_BES_database` canary | Instruction layer | Claude declined, citing `CLAUDE.md`; no tool call |
+| Read a harmless file outside the repository | Fence (`blockReadsOutsideWorkingDirectories`) | Refused by the permission system |
+| Run a Bash command | Shell deny | Refused: no shell tool in the session |
+| Run a PowerShell command | Shell deny | Refused: no shell tool in the session |
+
+**Phase B: a local session in an empty folder**, with the shell switched off by a settings
+file in that folder (Claude confirmed it had no shell tool), so that only the user-level
+deny rules applied. No permission dialog appeared at any point.
+
+| Probe | Rule tested | Outcome |
+| --- | --- | --- |
+| Read the `nansen_data` canary | `Read(~/nansen_data/**)` | Refused |
+| Read the `IMR_biotic_BES_database` canary | `Read(//**/IMR_biotic_BES_database/**)` | Refused |
+| Read the `NansenXMLs` canary | `Read(//**/NansenXMLs/**)` | Refused |
+| Read the `OneDrive_1_05-07-2026` canary | `Read(//**/OneDrive_1_05-07-2026/**)` | Not run: folder absent |
+| Glob in `NansenXMLs` | Read rule applied to Glob | Refused |
+| Grep in `IMR_biotic_BES_database` | Read rule applied to Grep | Refused |
+| Write a file in `NansenXMLs` | `Edit(//**/NansenXMLs/**)` | Refused |
+| Edit the `IMR_biotic_BES_database` canary | `Edit(//**/IMR_biotic_BES_database/**)` | Refused |
+| Read `canary.duckdb` in the repository | `Read(//**/*.duckdb)` | Refused |
+
+**Automated checks** (`Test-Canaries.ps1`): PASS. All six canaries were unchanged, no
+write probe existed, and no token appeared in the two transcripts written during the test.
+
+**Result: passed.** Every safeguard held, and each layer was seen to work on its own.
+
+**Limitations.**
+
+- In the repository session, `CLAUDE.md` led Claude to decline reads in the data zone
+  before any tool was called. Those probes show that the instruction layer holds, but they
+  did not exercise the permission layer in that session. The same deny rules were shown to
+  work in Phase B, and the fence was shown to work in Phase A with a file outside the data
+  zone. The procedure has been revised to expect this.
+- The `.duckdb.wal` and `.duckdb.backup` rules were not probed individually; they follow
+  the same pattern as the `.duckdb` rule, which was. The revised procedure probes all
+  three.
+- The OneDrive folder rules could not be tested, because the folder no longer exists.
+
+### Earlier test
+
+| Date | Version | OS | Read canary | List folder | Run command | Tested by |
 | --- | --- | --- | --- | --- | --- | --- |
-| Before 28 Sep 2026 (to be completed) | to be completed | Windows | Refused | Refused | Refused | Project lead |
+| Before 28 Sep 2026 (not recorded) | not recorded | Windows | Refused | Refused | Refused | Project lead |
 
-## 5. Points to review
+That test used a single canary, `~/nansen_data/CANARY.txt`, and the earlier settings (see
+"History" in section 2).
 
-These are observations on the configuration above, not failures of the test. Points 2 to
-4 are addressed by the corrected deny list in section 2 and the two-phase test, pending
-its results.
+## 5. Points reviewed
 
-1. **R expands `~` differently from Claude Code on Windows.** Claude Code's `~` is the
-   user profile (`C:\Users\<user>`); R's `~` is the Documents folder, which may be
+These were observations on the earlier configuration, not failures of a test.
+
+1. **R expands `~` differently from Claude Code on Windows.** *Open.* Claude Code's `~` is
+   the user profile (`C:\Users\<user>`); R's `~` is the Documents folder, which may be
    redirected into OneDrive (BAIT's `CLAUDE.md` notes the same). If `NANSEN_DATA_ROOT` were
    written as `~/nansen_data` in R, the pipeline could use a different folder from the one
    the deny rules protect, possibly inside a synchronised folder (Section 3.3, layer 1).
    Set `NANSEN_DATA_ROOT` in `.Renviron` as an absolute path, for example
    `C:/Users/<user>/nansen_data`.
-2. **The canary covers `~/nansen_data` only.** The other denied folders (the BAIT
-   database, `NansenXMLs`, `OneDrive_1_05-07-2026`) rely on the same mechanism but were
-   not probed. A canary in each would confirm them at little cost.
-3. **The NotebookEdit gap.** The folders denied only to Read are not protected against
-   NotebookEdit. The risk is to the integrity of the files, not their confidentiality,
-   and it is small; matching `Edit(//**/...)` rules would close it.
-4. **The inactive `Grep` and `Glob` rules** could be removed to silence the start-up
-   warning and avoid suggesting protection they do not provide. Keeping them is harmless.
-5. **`OneDrive_1_05-07-2026`** looks like a folder downloaded from OneDrive. It is worth
-   confirming that it does not sit inside a synchronised folder (Section 3.4).
+2. **The canary covered `~/nansen_data` only.** *Resolved:* the test of 28 September 2026
+   placed a canary in every protected folder that exists.
+3. **The NotebookEdit gap.** *Resolved:* every `Read` rule now has a matching `Edit` rule.
+4. **The inactive `Grep` and `Glob` rules.** *Resolved:* removed.
+5. **`OneDrive_1_05-07-2026`** might sit inside a synchronised folder. *Resolved:* the
+   folder no longer exists. Its deny rules are kept in case it reappears.
+6. **The laptop has two user profiles in play.** *For awareness.* The repository sits under
+   `C:\Users\Administrator`, while the data folders sit under the working user's profile.
+   The `~/nansen_data` rules refer to the working user's profile only; the `//**/` rules
+   match any location. Data folders should stay under the working user's profile, or be
+   covered by `//**/` rules.
 
 ## 6. Not covered here
 
