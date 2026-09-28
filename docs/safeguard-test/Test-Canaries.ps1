@@ -93,7 +93,7 @@ if ($transcripts.Count -eq 0) {
 Write-Host ''
 Write-Host 'Details to record' -ForegroundColor Cyan
 $claude = Get-Command claude -ErrorAction SilentlyContinue
-$version = if ($claude) { (& claude --version 2>$null | Out-String).Trim() } else { 'claude not on PATH; run claude --version' }
+$version = if ($claude) { (& claude --version 2>$null | Out-String).Trim() } else { 'not on PATH; in the desktop app, see About' }
 Write-Host "  Date:                $(Get-Date -Format 'yyyy-MM-dd')"
 Write-Host "  Claude Code version: $version"
 $os = try { (Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).Caption } catch { 'unknown; note it by hand' }
@@ -102,6 +102,6 @@ $skipped = @($manifest.Skipped | Where-Object { $_ })
 Write-Host "  Folders skipped:     $(if ($skipped.Count -gt 0) { $skipped -join ', ' } else { 'none' })"
 Write-Host "  Automated checks:    $(if ($failures -eq 0) { 'PASS' } else { "FAIL ($failures)" })"
 Write-Host ''
-Write-Host 'The automated checks do not replace your record of each probe (README.md, step 6).'
+Write-Host 'The automated checks do not replace your record of each probe (README.md, step 5).'
 
 if ($failures -gt 0) { exit 1 }
