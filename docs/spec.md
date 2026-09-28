@@ -276,6 +276,8 @@ Milestones run in sequence, each closed by a check that can be verified; the air
 
 Claude Code starts each milestone in plan mode against this specification, and no milestone is merged before its acceptance check passes and the code has been reviewed by a person.
 
+**Scope of the M0 check.** M0 delivers a scaffold with empty module files, so its cloud check confirms that the package builds, passes `R CMD check` and runs its smoke test in a cloud session with the packages installed. No estimation code and no synthetic survey exist yet. The first check on synthetic data comes with the `synth` module at M1.
+
 ## 12. Forward compatibility: pelagic extension
 
 Pelagic estimation changes the observation process, so it will be a separate module rather than a variant of the demersal one. Acoustic-trawl estimates combine along-track NASC with trawl-based species and length allocation and target-strength relationships.
