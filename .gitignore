@@ -2,5 +2,35 @@
 .Rhistory
 .RData
 .Ruserdata
+.Renviron
 
 .claude/settings.local.json
+
+# ---------------------------------------------------------------------------
+# Data protection (docs/spec.md, Section 3)
+#
+# Raw (C0) and station-level (C1) material is never committed. Real data live
+# outside the repository, under NANSEN_DATA_ROOT; these patterns are a second
+# line of defence in case a file is copied here by mistake.
+# ---------------------------------------------------------------------------
+
+# Biotic XML. Real exports are not always named biotic*.xml, so every XML
+# file is ignored. A legitimate XML file outside synthetic/ or tests/ needs
+# an explicit exception below, agreed with the project lead.
+*.xml
+
+# DuckDB databases, write-ahead logs and backups
+*.duckdb
+*.duckdb.wal
+*.duckdb.backup
+
+# R objects: sdmTMB model objects embed the fitted data (C1)
+*.rds
+
+# Exceptions: synthetic surveys and test fixtures (C3) may be committed
+!synthetic/**/*.xml
+!synthetic/**/*.duckdb
+!synthetic/**/*.rds
+!tests/**/*.xml
+!tests/**/*.duckdb
+!tests/**/*.rds
