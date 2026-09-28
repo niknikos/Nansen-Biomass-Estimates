@@ -10,7 +10,8 @@
          canaries were created.
     It prints paths and outcomes, never tokens, and ends with the details to record.
 
-    Run it yourself in PowerShell on the laptop, never through Claude Code.
+    Run it yourself in PowerShell on the laptop, never through Claude Code. Written for
+    Constrained Language Mode: it uses only cmdlets, hashtables and core types.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\Test-Canaries.ps1
@@ -95,7 +96,8 @@ $claude = Get-Command claude -ErrorAction SilentlyContinue
 $version = if ($claude) { (& claude --version 2>$null | Out-String).Trim() } else { 'claude not on PATH; run claude --version' }
 Write-Host "  Date:                $(Get-Date -Format 'yyyy-MM-dd')"
 Write-Host "  Claude Code version: $version"
-Write-Host "  OS:                  $([Environment]::OSVersion.VersionString)"
+$os = try { (Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop).Caption } catch { 'unknown; note it by hand' }
+Write-Host "  OS:                  $os"
 $skipped = @($manifest.Skipped | Where-Object { $_ })
 Write-Host "  Folders skipped:     $(if ($skipped.Count -gt 0) { $skipped -join ', ' } else { 'none' })"
 Write-Host "  Automated checks:    $(if ($failures -eq 0) { 'PASS' } else { "FAIL ($failures)" })"

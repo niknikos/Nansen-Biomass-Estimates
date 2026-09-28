@@ -50,7 +50,7 @@ rule produces a permission prompt instead, and nothing is shown unless you appro
 | --- | --- |
 | `New-Canaries.ps1` | Places a canary holding a random token in each protected folder and three DuckDB-named canaries in the repository root; writes a manifest (with the tokens) inside `nansen_data`; creates the empty Phase B folder. Creates nothing unless it can create everything. |
 | `Test-Canaries.ps1` | After the sessions: checks that every canary is unchanged, that no write probe exists, and that no token appears in any Claude Code transcript since the canaries were created. Prints outcomes and paths, never tokens. |
-| `Remove-Canaries.ps1` | Deletes only what the manifest lists, and only if it still matches. Supports `-WhatIf`. |
+| `Remove-Canaries.ps1` | Deletes only what the manifest lists, and only if it still matches. `-Preview` shows what it would remove. |
 
 The canaries hold no data. The tokens exist so that a leak can be detected: if a token
 ever appears in a transcript, the rule protecting that file failed.
@@ -222,7 +222,7 @@ involved, never the token.
 Preview first, then remove:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\Remove-Canaries.ps1 -WhatIf
+powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\Remove-Canaries.ps1 -Preview
 powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\Remove-Canaries.ps1
 ```
 
