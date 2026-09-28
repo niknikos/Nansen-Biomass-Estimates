@@ -57,6 +57,13 @@ ever appears in a transcript, the rule protecting that file failed.
 
 ## Step 0. Before you start
 
+**Use a Windows PowerShell window for every command in this procedure.** In Git Bash
+(prompt shows `MINGW64`), backslashes are escape characters, so a path such as
+`.\docs\safeguard-test\New-Canaries.ps1` reaches PowerShell as
+`.docssafeguard-testNew-Canaries.ps1` and the script is not found. If you must use Git
+Bash, write paths with forward slashes and translate `$env:USERPROFILE` to `~`. Quote
+paths that contain spaces, such as `"...\R projects\nansenbiomass"`.
+
 1. Apply the corrected deny list to your user settings and check
    `.claude/settings.local.json` against `../local-safeguards.md` (sections 2 and 3).
    Set `NANSEN_DATA_ROOT` as an absolute path (section 5, point 1).
