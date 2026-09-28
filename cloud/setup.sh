@@ -50,7 +50,10 @@
 #   12 s and the spatial libraries installed without error, but every R package
 #   download from P3M failed although P3M's package index was read. The diagnosis
 #   below found the cause: downloads are redirected to rspm-sync.rstudio.com, which
-#   was not in the allowlist. The full run has not yet been timed end to end.
+#   was not in the allowlist. With that host added (run 3, 28 September 2026), the
+#   whole session, setup, build, check and tests, finished in under two minutes.
+#   Stage timings go to the script's standard output, which the session itself
+#   cannot see; the logs in /tmp/nansenbiomass-setup hold the install output only.
 #
 # Data
 #   This script installs software only. It reads no data and must never be
@@ -62,7 +65,8 @@ export DEBIAN_FRONTEND=noninteractive
 UBUNTU_CODENAME="noble"
 CRAN_APT="https://cloud.r-project.org/bin/linux/ubuntu"
 P3M_REPO="https://p3m.dev/cran/__linux__/${UBUNTU_CODENAME}/latest"
-TOOL_PACKAGES="renv testthat roxygen2 yaml"
+# codetools is used by R CMD check for its code analysis.
+TOOL_PACKAGES="renv testthat roxygen2 yaml codetools"
 SPATIAL_PACKAGES="sf terra sdmTMB"
 # Runtime libraries only; the binaries from P3M are built against these.
 SPATIAL_LIBS=(libgdal34t64 libgeos-c1t64 libproj25 libudunits2-0)
@@ -148,8 +152,11 @@ echo "deb ${CRAN_APT} ${UBUNTU_CODENAME}-cran40/" |
 
 stage "Installing R"
 $SUDO apt-get "${APT_OPTS[@]}" update -qq
-# libxml2 is needed by the xml2 binary that roxygen2 depends on.
-$SUDO apt-get "${APT_OPTS[@]}" install -y -qq --no-install-recommends r-base-core libxml2
+# libxml2 is needed by the xml2 binary that roxygen2 depends on. locales provides
+# locale-gen: R CMD check switches to en_US.UTF-8 when the session has no UTF-8
+# locale set, and warns if that locale does not exist.
+$SUDO apt-get "${APT_OPTS[@]}" install -y -qq --no-install-recommends r-base-core libxml2 locales
+$SUDO locale-gen en_US.UTF-8 >/dev/null
 R --version | head -n 1
 
 stage "Configuring R to install binary packages from P3M"
