@@ -33,6 +33,11 @@
 #   (the exact error and every redirect followed), names the missing packages in a
 #   warning, and lets the session start so that the problem can be investigated.
 #
+# Environment variables (the environment's "Environment variables" field)
+#   LANG=C.UTF-8   Starts R in a UTF-8 locale, so that R CMD check does not switch to
+#                  en_US.UTF-8. A check run with it returned Status: OK. The script
+#                  also generates en_US.UTF-8, so the check stays clean without it.
+#
 # Network allowlist (custom allowed domains, with the default list included)
 #   archive.ubuntu.com, security.ubuntu.com  Ubuntu packages (in the default list)
 #   cloud.r-project.org                      R itself and the CRAN apt signing key
@@ -54,6 +59,9 @@
 #   whole session, setup, build, check and tests, finished in under two minutes.
 #   Stage timings go to the script's standard output, which the session itself
 #   cannot see; the logs in /tmp/nansenbiomass-setup hold the install output only.
+#   A session that finds those logs older than its own start ran from the cached
+#   environment, not from this script: the cache is rebuilt only when the stored
+#   script or the allowed hosts change (run 4 did this).
 #
 # Data
 #   This script installs software only. It reads no data and must never be
@@ -156,7 +164,11 @@ $SUDO apt-get "${APT_OPTS[@]}" update -qq
 # locale-gen: R CMD check switches to en_US.UTF-8 when the session has no UTF-8
 # locale set, and warns if that locale does not exist.
 $SUDO apt-get "${APT_OPTS[@]}" install -y -qq --no-install-recommends r-base-core libxml2 locales
-$SUDO locale-gen en_US.UTF-8 >/dev/null
+$SUDO locale-gen en_US.UTF-8
+if ! locale -a | grep -qix 'en_US.utf8'; then
+  echo "WARNING: the en_US.UTF-8 locale was not generated; set LANG=C.UTF-8 in the"
+  echo "environment's variables, or R CMD check will warn about the locale."
+fi
 R --version | head -n 1
 
 stage "Configuring R to install binary packages from P3M"
