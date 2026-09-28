@@ -28,12 +28,17 @@
 #   cache is rebuilt when the script or the allowed hosts change, and after about
 #   seven days. A script that runs longer can make the session fail to start with a
 #   generic error. A non-zero exit also stops the session from starting, so only
-#   stages whose failure would leave R unusable are allowed to fail.
+#   stages whose failure would leave R unusable (apt, R itself) are fatal. If R
+#   packages cannot be installed, the script prints a diagnosis of the downloads
+#   (the exact error and every redirect followed), names the missing packages in a
+#   warning, and lets the session start so that the problem can be investigated.
 #
 # Network allowlist (custom allowed domains, with the default list included)
 #   archive.ubuntu.com, security.ubuntu.com  Ubuntu packages (in the default list)
 #   cloud.r-project.org                      R itself and the CRAN apt signing key
-#   p3m.dev                                  binary R packages
+#   p3m.dev                                  binary R packages (index and metadata)
+#   rspm-sync.rstudio.com                    binary R package files: p3m.dev answers each
+#                                            download with a redirect (HTTP 307) to this host
 #   packagemanager.posit.co                  former P3M address, still used by some tools
 #   Needed only from later milestones:
 #   stoxproject.github.io                    StoX R packages (M2)
@@ -41,9 +46,11 @@
 #   codeload.github.com                      sdmTMBexperiments from GitHub (M3; default list)
 #
 # Timing
-#   Each stage prints its elapsed time. The first run of the earlier version
-#   reached the CRAN repository (R 4.6.1) but ran out of time installing
-#   development libraries; this version has not yet been timed end to end.
+#   Each stage prints its elapsed time. On the first runs, R 4.6.1 installed in
+#   12 s and the spatial libraries installed without error, but every R package
+#   download from P3M failed although P3M's package index was read. The diagnosis
+#   below found the cause: downloads are redirected to rspm-sync.rstudio.com, which
+#   was not in the allowlist. The full run has not yet been timed end to end.
 #
 # Data
 #   This script installs software only. It reads no data and must never be
@@ -69,7 +76,10 @@ mkdir -p "$LOG_DIR"
 start=$SECONDS
 stage() { printf '\n[setup %4ds] %s\n' "$((SECONDS - start))" "$*"; }
 
-# Installs the R packages named in $1 and stops if any is missing afterwards
+MISSING_PACKAGES=""
+DIAGNOSED=""
+
+# Installs the R packages named in $1 and fails if any is missing afterwards
 # (install.packages() itself only warns).
 install_r_packages() {
   R_PACKAGES="$1" Rscript -e '
@@ -80,6 +90,43 @@ install_r_packages() {
       stop("Not installed: ", paste(missing, collapse = ", "))
     }
   '
+}
+
+# Prints why R package downloads fail: the error R reports for one download, and
+# every redirect curl follows (a redirect to a host outside the allowlist would
+# explain a readable index with failing downloads). Runs once; never fails.
+diagnose_downloads() {
+  if [ -n "$DIAGNOSED" ]; then return 0; fi
+  DIAGNOSED=1
+  echo "--- Diagnosing R package downloads"
+  if [ -n "${https_proxy:-${HTTPS_PROXY:-}}" ]; then echo "An HTTPS proxy is set."; fi
+  LOG_DIR="$LOG_DIR" Rscript -e '
+    cat("download.file.method:", format(getOption("download.file.method")), "\n")
+    a <- tryCatch(available.packages(), error = function(e) {
+      cat("available.packages() failed:", conditionMessage(e), "\n")
+      NULL
+    })
+    if (is.null(a) || !"R6" %in% rownames(a)) quit(status = 0)
+    url <- paste0(contrib.url(getOption("repos")), "/R6_", a["R6", "Version"], ".tar.gz")
+    writeLines(url, file.path(Sys.getenv("LOG_DIR"), "test-url"))
+    cat("Test download:", url, "\n")
+    res <- tryCatch(
+      {
+        download.file(url, tempfile(), quiet = TRUE)
+        "ok"
+      },
+      warning = function(w) paste("warning:", conditionMessage(w)),
+      error = function(e) paste("error:", conditionMessage(e))
+    )
+    cat("download.file:", res, "\n")
+  ' || true
+  if [ -s "$LOG_DIR/test-url" ]; then
+    echo "curl, following redirects (status lines, Location headers, errors):"
+    curl -sS -L --max-redirs 5 -o /dev/null -D - \
+      -A "R/4 R (4 x86_64-pc-linux-gnu x86_64 linux-gnu)" "$(cat "$LOG_DIR/test-url")" 2>&1 |
+      grep -iE '^(HTTP/|location:|curl:)' || true
+  fi
+  echo "--- End of diagnosis"
 }
 
 # apt reads only Ubuntu's own archive and CRAN, so the third-party sources in the
@@ -143,26 +190,44 @@ apt_status=0
 wait "$apt_pid" || apt_status=$?
 tools_status=0
 wait "$tools_pid" || tools_status=$?
-if [ "$apt_status" -ne 0 ] || [ "$tools_status" -ne 0 ]; then
-  echo "Parallel stage failed (apt: $apt_status, R tooling: $tools_status). Last log lines:"
-  tail -n 30 "$LOG_DIR/apt-spatial.log" "$LOG_DIR/r-tools.log"
+if [ "$apt_status" -ne 0 ]; then
+  echo "Installing the spatial libraries failed (apt exit $apt_status). Last log lines:"
+  tail -n 30 "$LOG_DIR/apt-spatial.log"
   exit 1
+fi
+if [ "$tools_status" -ne 0 ]; then
+  echo "Installing the R tooling packages failed. Last log lines:"
+  tail -n 15 "$LOG_DIR/r-tools.log"
+  MISSING_PACKAGES="$MISSING_PACKAGES $TOOL_PACKAGES"
+  diagnose_downloads
 fi
 
 stage "Installing spatial R packages: ${SPATIAL_PACKAGES}"
-install_r_packages "$SPATIAL_PACKAGES"
+if ! install_r_packages "$SPATIAL_PACKAGES" >"$LOG_DIR/r-spatial.log" 2>&1; then
+  echo "Installing the spatial R packages failed. Last log lines:"
+  tail -n 15 "$LOG_DIR/r-spatial.log"
+  MISSING_PACKAGES="$MISSING_PACKAGES $SPATIAL_PACKAGES"
+  diagnose_downloads
+fi
 
 stage "Checking the installation"
 R_PACKAGES="$TOOL_PACKAGES $SPATIAL_PACKAGES" Rscript -e '
   pkgs <- strsplit(Sys.getenv("R_PACKAGES"), " ", fixed = TRUE)[[1]]
   for (p in pkgs) {
+    if (!requireNamespace(p, quietly = TRUE)) {
+      cat(sprintf("%-10s NOT INSTALLED\n", p))
+      next
+    }
     # Loading, not just finding, confirms that the binaries link correctly.
-    suppressPackageStartupMessages(loadNamespace(p))
     cat(sprintf("%-10s %s\n", p, format(packageVersion(p))))
   }
-  print(sf::sf_extSoftVersion()[c("GEOS", "GDAL", "proj.4")])
-  cat("terra linked to GDAL", terra::gdal(), "\n")
-'
+  if (requireNamespace("sf", quietly = TRUE)) {
+    print(sf::sf_extSoftVersion()[c("GEOS", "GDAL", "proj.4")])
+  }
+  if (requireNamespace("terra", quietly = TRUE)) {
+    cat("terra linked to GDAL", terra::gdal(), "\n")
+  }
+' || echo "WARNING: the installation check itself failed; see the lines above."
 
 # Restoring the lockfile is useful but not essential here: a failure is reported
 # and the session still starts, so it can be investigated from within it.
@@ -174,7 +239,8 @@ for d in "${NANSENBIOMASS_DIR:-}" "$PWD" /home/user/nansenbiomass; do
     break
   fi
 done
-if [ -n "$REPO_DIR" ] && [ -f "$REPO_DIR/renv.lock" ]; then
+if [ -n "$REPO_DIR" ] && [ -f "$REPO_DIR/renv.lock" ] &&
+  Rscript -e 'quit(status = !requireNamespace("renv", quietly = TRUE))'; then
   stage "Restoring renv.lock in ${REPO_DIR}"
   (cd "$REPO_DIR" && Rscript -e 'renv::restore(prompt = FALSE)') ||
     echo "WARNING: renv::restore() failed; run it in the session to see why."
@@ -183,3 +249,9 @@ else
 fi
 
 stage "Done"
+if [ -n "$MISSING_PACKAGES" ]; then
+  echo ""
+  echo "WARNING: R packages not installed:$MISSING_PACKAGES"
+  echo "R itself works. The session starts anyway so that this can be investigated;"
+  echo "see the diagnosis above and the logs in $LOG_DIR."
+fi
