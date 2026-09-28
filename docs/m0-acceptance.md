@@ -98,14 +98,16 @@ A cloud session with the lockfile in place (same environment, 28 September 2026)
   happen. Restoring it in the cloud (which needs `libglpk40` and a time check against the
   five-minute budget) is deferred until the lockfile and the installed versions can
   drift apart, probably at M1.
+- **Verified.** A further cloud session (28 September 2026, commit `c3d9a28`, same
+  environment) reported that the variable from `.claude/settings.json` reached its shell
+  and that `R CMD check` gave `Status: OK` with no errors. The main session read only the
+  check session's summary, not its full report, so the detail of R's behaviour in the
+  repository root is not recorded here.
 
 ## Open points
 
-- **Spec wording.** The check session proposed a note in docs/spec.md, Section 11, that
-  M0's cloud check tests the scaffold only, and that the first check on synthetic data
-  comes with `synth`. This needs the project lead's decision.
-- **renv in the cloud.** Whether the environment variable in `.claude/settings.json`
-  takes effect in a cloud session is checked in section 3 below once verified; see the
-  result recorded there.
+- **Restoring the lockfile in the cloud.** Deferred. It needs `libglpk40` in
+  `cloud/setup.sh` (the igraph binary fails without it) and a time check against the
+  five-minute budget; revisit when the lockfile and the installed versions can drift apart.
 - **Earlier environments.** `nansenbiomass` holds a stale cache and can be archived;
   `NN` has the R hosts added, which other projects do not need.
