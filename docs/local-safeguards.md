@@ -233,13 +233,17 @@ That test used a single canary, `~/nansen_data/CANARY.txt`, and the earlier sett
 
 These were observations on the earlier configuration, not failures of a test.
 
-1. **R expands `~` differently from Claude Code on Windows.** *Open.* Claude Code's `~` is
-   the user profile (`C:\Users\<user>`); R's `~` is the Documents folder, which may be
-   redirected into OneDrive (BAIT's `CLAUDE.md` notes the same). If `NANSEN_DATA_ROOT` were
-   written as `~/nansen_data` in R, the pipeline could use a different folder from the one
-   the deny rules protect, possibly inside a synchronised folder (Section 3.3, layer 1).
-   Set `NANSEN_DATA_ROOT` in `.Renviron` as an absolute path, for example
-   `C:/Users/<user>/nansen_data`.
+1. **R expands `~` differently from Claude Code on Windows.** *Resolved on
+   28 September 2026.* Claude Code's `~` is the user profile (`C:\Users\<user>`); R's `~`
+   is the Documents folder (BAIT's `CLAUDE.md` notes the same). On the laptop R reports
+   `C:/Users/<user>/Documents`, not redirected into OneDrive, so `~/nansen_data` in R would
+   have meant a different folder from the one the deny rules protect. `NANSEN_DATA_ROOT`
+   is now set as an absolute path, `C:/Users/<user>/nansen_data`, in the personal
+   `.Renviron` (`~/.Renviron`, that is `C:/Users/<user>/Documents/.Renviron`). After a
+   restart, R returned the value and found the folder. The data folder sits directly under
+   the profile folder, outside the OneDrive root, which is a separate folder beside it.
+   (A project-level `.Renviron` would replace the personal one for that project rather
+   than add to it, and is not used.)
 2. **The canary covered `~/nansen_data` only.** *Resolved:* the test of 28 September 2026
    placed a canary in every protected folder that exists.
 3. **The NotebookEdit gap.** *Resolved:* every `Read` rule now has a matching `Edit` rule.
