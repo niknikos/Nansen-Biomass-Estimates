@@ -61,7 +61,10 @@
 #   cannot see; the logs in /tmp/nansenbiomass-setup hold the install output only.
 #   A session that finds those logs older than its own start ran from the cached
 #   environment, not from this script: the cache is rebuilt only when the stored
-#   script or the allowed hosts change (run 4 did this).
+#   script or the allowed hosts change. On 28 September 2026, changes saved to an
+#   existing environment did not reach new sessions (runs 4 to 6); a newly created
+#   environment ran the current script on its first session and passed with
+#   Status: OK (docs/m0-acceptance.md).
 #
 # Data
 #   This script installs software only. It reads no data and must never be
