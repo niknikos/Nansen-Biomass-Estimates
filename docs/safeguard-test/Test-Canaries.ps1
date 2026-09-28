@@ -96,6 +96,8 @@ $version = if ($claude) { (& claude --version 2>$null | Out-String).Trim() } els
 Write-Host "  Date:                $(Get-Date -Format 'yyyy-MM-dd')"
 Write-Host "  Claude Code version: $version"
 Write-Host "  OS:                  $([Environment]::OSVersion.VersionString)"
+$skipped = @($manifest.Skipped | Where-Object { $_ })
+Write-Host "  Folders skipped:     $(if ($skipped.Count -gt 0) { $skipped -join ', ' } else { 'none' })"
 Write-Host "  Automated checks:    $(if ($failures -eq 0) { 'PASS' } else { "FAIL ($failures)" })"
 Write-Host ''
 Write-Host 'The automated checks do not replace your record of each probe (README.md, step 6).'

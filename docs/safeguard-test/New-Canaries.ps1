@@ -20,6 +20,11 @@
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\New-Canaries.ps1 `
         -NansenXmlsPath "D:\surveys\NansenXMLs"
+
+.EXAMPLE
+    # A protected folder that no longer exists on this machine is left out of the test:
+    powershell -ExecutionPolicy Bypass -File .\docs\safeguard-test\New-Canaries.ps1 `
+        -Skip OneDrive_1_05-07-2026
 #>
 [CmdletBinding()]
 param(
@@ -30,7 +35,10 @@ param(
     [string]$NansenDataPath,
     [string]$BaitDatabasePath,
     [string]$NansenXmlsPath,
-    [string]$OneDriveDownloadPath
+    [string]$OneDriveDownloadPath,
+    # Names of protected folders to leave out, for example a folder that no longer
+    # exists. nansen_data cannot be skipped: the manifest is kept there.
+    [string[]]$Skip = @()
 )
 
 $ErrorActionPreference = 'Stop'
@@ -78,15 +86,43 @@ if (-not (Test-Path -LiteralPath $description) -or
     throw "$RepoPath is not the nansenbiomass repository. Run from its root or pass -RepoPath."
 }
 
-$folders = [ordered]@{
-    'nansen_data'             = Resolve-ProtectedFolder $NansenDataPath 'nansen_data' `
-        (Join-Path $HomeDir 'nansen_data') 'NansenDataPath'
-    'IMR_biotic_BES_database' = Resolve-ProtectedFolder $BaitDatabasePath 'IMR_biotic_BES_database' `
-        (Join-Path $HomeDir 'IMR_biotic_BES_database') 'BaitDatabasePath'
-    'NansenXMLs'              = Resolve-ProtectedFolder $NansenXmlsPath 'NansenXMLs' `
-        $null 'NansenXmlsPath'
-    'OneDrive_1_05-07-2026'   = Resolve-ProtectedFolder $OneDriveDownloadPath 'OneDrive_1_05-07-2026' `
-        $null 'OneDriveDownloadPath'
+$specs = @(
+    @{ Name = 'nansen_data'; Given = $NansenDataPath; Param = 'NansenDataPath'
+       Default = (Join-Path $HomeDir 'nansen_data') }
+    @{ Name = 'IMR_biotic_BES_database'; Given = $BaitDatabasePath; Param = 'BaitDatabasePath'
+       Default = (Join-Path $HomeDir 'IMR_biotic_BES_database') }
+    @{ Name = 'NansenXMLs'; Given = $NansenXmlsPath; Param = 'NansenXmlsPath'; Default = $null }
+    @{ Name = 'OneDrive_1_05-07-2026'; Given = $OneDriveDownloadPath; Param = 'OneDriveDownloadPath'
+       Default = $null }
+)
+$knownNames = @($specs | ForEach-Object { $_.Name })
+foreach ($name in $Skip) {
+    if ($knownNames -notcontains $name) {
+        throw "Unknown folder in -Skip: '$name'. Valid names: $($knownNames -join ', ')."
+    }
+}
+if ($Skip -contains 'nansen_data') {
+    throw 'nansen_data cannot be skipped: the manifest is kept there.'
+}
+
+# Resolve every folder before stopping, so that all problems are reported at once.
+$folders = [ordered]@{}
+$problems = @()
+foreach ($spec in $specs) {
+    if ($Skip -contains $spec.Name) {
+        Write-Host "Skipping '$($spec.Name)' (-Skip)."
+        continue
+    }
+    try {
+        $folders[$spec.Name] = Resolve-ProtectedFolder $spec.Given $spec.Name $spec.Default $spec.Param
+    } catch {
+        $problems += $_.Exception.Message
+    }
+}
+if ($problems.Count -gt 0) {
+    throw ("Nothing was created. Resolve the following, then run the script again:`n`n" +
+        ($problems -join "`n`n") +
+        "`n`nA folder that no longer exists can be left out with -Skip <name>.")
 }
 
 $manifestPath = Join-Path $folders['nansen_data'] '.nansenbiomass-canary-manifest.json'
@@ -130,6 +166,7 @@ $manifest = [pscustomobject]@{
     LabPath     = $labPath
     Canaries    = $canaries
     WriteProbes = $writeProbes
+    Skipped     = @($Skip)
 }
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 
@@ -158,3 +195,6 @@ Write-Host 'Paths to use in the probes (copy them into the prompts in README.md)
 foreach ($name in $folders.Keys) { Write-Host ("  {0,-25} folder  {1}" -f $name, $folders[$name]) }
 foreach ($c in $canaries) { Write-Host ("  {0,-25} canary  {1}" -f $c.Location, $c.Path) }
 Write-Host ("  {0,-25} folder  {1}" -f 'Phase B', $labPath)
+foreach ($name in $Skip) {
+    Write-Host ("  {0,-25} SKIPPED: record its probes as n/a" -f $name) -ForegroundColor Yellow
+}
