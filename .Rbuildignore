@@ -1,0 +1,12 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^renv$
+^renv\.lock$
+^\.claude$
+^CLAUDE\.md$
+^cloud$
+^configs$
+^docs$
+^outbox$
+^synthetic$
+^LICENSE\.md$
