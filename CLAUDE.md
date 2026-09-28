@@ -85,7 +85,9 @@ the relevant data agreement. Data sent to an external service may persist after 
   pass in a cloud session.
 - **Dependencies.** renv. The lockfile is authoritative and is maintained on the laptop.
   Do not run `renv::update()` or `renv::snapshot()` unless asked. Adding a dependency means
-  adding it to `DESCRIPTION` and saying so in the plan.
+  adding it to `DESCRIPTION` and saying so in the plan. In cloud sessions renv's autoloader
+  is switched off (`RENV_CONFIG_AUTOLOADER_ENABLED` in `.claude/settings.json`), so R uses
+  the packages that `cloud/setup.sh` installed, and the lockfile governs the laptop.
 - **Paths and configuration.** Never hard-code paths. Data paths are built from
   `NANSEN_DATA_ROOT`; each survey and run has one YAML file in `configs/`.
 - **Reproducibility.** Every estimate records its configuration hash, code version and

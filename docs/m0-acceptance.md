@@ -77,12 +77,35 @@ session's setup logs in `/tmp/nansenbiomass-setup` are newer than the session it
 they are not, the session ran from a cached environment; creating a new environment is
 the reliable way to get a fresh one.
 
+## 3. The renv lockfile in the cloud
+
+The lockfile was created on the laptop and added in commit `f0f59cc` (R 4.6.1; 82
+packages, all from CRAN; sf 1.1-3, terra 1.9-50, sdmTMB 1.1.0, testthat 3.3.2, roxygen2
+8.1.0, yaml 2.3.12, renv 1.2.4, the same versions the cloud environment had installed).
+A cloud session with the lockfile in place (same environment, 28 September 2026) showed:
+
+- **Evidence.** With renv's autoloader on, R started in the repository root could not find
+  testthat, yaml, sf, terra or sdmTMB. `renv::restore()` failed at igraph, whose binary
+  needs the system library `libglpk.so.40`. `R CMD check` in a scratchpad still gave
+  `Status: OK`. The report's timings were not available to the main session.
+- **Interpretation.** renv points R at an empty project library and ignores the system
+  library that `cloud/setup.sh` filled. The lockfile pins the versions the cloud already
+  has, so restoring it there would change nothing today.
+- **Decision.** Cloud sessions switch the autoloader off with
+  `RENV_CONFIG_AUTOLOADER_ENABLED=FALSE` in the `env` block of `.claude/settings.json`,
+  which the documentation says is read in cloud sessions on a single repository and
+  travels with the repository. The lockfile governs the laptop, where real-data runs
+  happen. Restoring it in the cloud (which needs `libglpk40` and a time check against the
+  five-minute budget) is deferred until the lockfile and the installed versions can
+  drift apart, probably at M1.
+
 ## Open points
 
 - **Spec wording.** The check session proposed a note in docs/spec.md, Section 11, that
   M0's cloud check tests the scaffold only, and that the first check on synthetic data
   comes with `synth`. This needs the project lead's decision.
-- **renv lockfile.** To be created on the laptop (`renv::init(bare = TRUE)`, then
-  `renv::snapshot()`) and committed; the cloud then restores it from binaries.
+- **renv in the cloud.** Whether the environment variable in `.claude/settings.json`
+  takes effect in a cloud session is checked in section 3 below once verified; see the
+  result recorded there.
 - **Earlier environments.** `nansenbiomass` holds a stale cache and can be archived;
   `NN` has the R hosts added, which other projects do not need.
