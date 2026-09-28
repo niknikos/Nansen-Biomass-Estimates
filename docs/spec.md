@@ -53,7 +53,31 @@ sdmTMB model objects embed the fitted data, so they are C1. Station positions ar
 
 ### 3.2 Zones
 
-&#91;embedded content: data boundary · two zones, one airlock\]
+```mermaid
+---
+title: "Data boundary: two zones, one airlock"
+---
+flowchart LR
+    subgraph DZ["Data zone · developer's laptop"]
+        RAW[("Raw data (C0),<br/>full results and logs")]
+        RUN["R pipeline,<br/>started by a person"]
+        STAGE["Staging folder:<br/>candidate export"]
+        CHECK{"Disclosure check<br/>and review by a person"}
+        RAW --> RUN --> STAGE --> CHECK
+    end
+
+    subgraph CZ["Code zone · private GitHub repository"]
+        CODE["R package, configurations,<br/>synthetic data, tests, skills"]
+        OUTBOX[["outbox/<br/>released C2 outputs"]]
+        CLAUDE["Claude Code,<br/>cloud session on a copy of the repository"]
+        CLAUDE <-->|"reads and writes"| CODE
+        OUTBOX -->|"read only"| CLAUDE
+    end
+
+    CODE -->|"code pulled by a person"| RUN
+    CHECK -->|"airlock: passing files<br/>committed by a person"| OUTBOX
+    CLAUDE -. "no route" .-x RAW
+```
 
 The AI works only in the code zone; the only data-derived material it sees is what a person has released into the outbox.
 
@@ -251,6 +275,8 @@ Milestones run in sequence, each closed by a check that can be verified; the air
 | M6 | Skills layer | Skills in `.claude/skills/` | Each skill runs end to end on synthetic data without touching the data zone |
 
 Claude Code starts each milestone in plan mode against this specification, and no milestone is merged before its acceptance check passes and the code has been reviewed by a person.
+
+**Scope of the M0 check.** M0 delivers a scaffold with empty module files, so its cloud check confirms that the package builds, passes `R CMD check` and runs its smoke test in a cloud session with the packages installed. No estimation code and no synthetic survey exist yet. The first check on synthetic data comes with the `synth` module at M1.
 
 ## 12. Forward compatibility: pelagic extension
 

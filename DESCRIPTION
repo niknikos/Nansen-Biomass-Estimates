@@ -1,0 +1,24 @@
+Package: nansenbiomass
+Title: Reproducible Survey Biomass Reconstruction with StoX and sdmTMB
+Version: 0.0.0.9000
+Authors@R:
+    person("Nikolaos", "Nikolioudakis", , "nikolaos.nikolioudakis@hi.no",
+           role = c("aut", "cre"))
+Description: Reconstructs biomass and abundance estimates for demersal
+    bottom-trawl surveys with a design-based framework (StoX swept-area)
+    and a model-based framework (sdmTMB). Every estimate traces back to a
+    versioned configuration, a code version, a package snapshot and a
+    fixed random seed. Outputs pass a disclosure check before release,
+    and a synthetic survey generator supports testing without real data.
+License: file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.3)
+Suggests:
+    sdmTMB,
+    sf,
+    terra,
+    testthat (>= 3.0.0),
+    yaml
+Config/testthat/edition: 3
