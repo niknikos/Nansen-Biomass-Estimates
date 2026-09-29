@@ -45,14 +45,16 @@ Design points a reviewer should know:
 | Item | Value |
 | --- | --- |
 | Date | 29 September 2026 |
-| Code | commits `90a04d8` and `43fdfb4` on `claude/elegant-pascal-52da5l` |
+| Code | commits `90a04d8`, `43fdfb4` and `caf205f` on `claude/elegant-pascal-52da5l` |
 | Cloud environment | `nansenbiomass-m0`; setup logs newer than the session, so the current `cloud/setup.sh` ran |
 | R and packages | R 4.6.1; the versions recorded in the M0 record and pinned in `renv.lock` |
 | New dependencies | None outside `renv.lock`: dplyr, rlang, sf, tibble, withr and xml2 moved to Imports |
 
 `R CMD build` and `R CMD check --no-manual` ran in the session's scratchpad, not in the
 working tree. Session charset UTF-8; **`Status: OK`**, no NOTE, WARNING or ERROR; examples
-ran; tests `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 160 ]`.
+ran; tests `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 165 ]`. The first commit, checked on its own,
+also passed its tests, with one NOTE: `utils` is declared before the airlock, which uses it,
+arrives in the second.
 
 **Check 1, synthetic side.** A synthetic survey (seed 1: 45 stations, 108 catch samples,
 5,285 individuals) written to NMDBiotic XML and read back reproduces all four tables
@@ -81,7 +83,8 @@ pass:rules-v1:min5:pos3`. Lowering either minimum is refused, staging into an `o
 folder is refused, and a failing rerun removes an earlier passing export.
 
 **Rule 8.** A sentinel string placed in synthetic input appears in the local log but in no
-error, warning, printed survey or report.
+error, warning, printed survey or report. Field names that could carry identifiers (not a
+plain identifier, or three or more consecutive digits) are reported as `<name withheld>`.
 
 ## 3. Laptop check (real data): steps for a person
 
