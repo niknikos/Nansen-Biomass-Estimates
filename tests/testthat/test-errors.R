@@ -85,3 +85,9 @@ test_that("path_is_within handles paths that do not exist yet", {
   expect_true(path_is_within(file.path(parent, "new", "folder"), parent))
   expect_false(path_is_within(R.home(), parent))
 })
+
+test_that("field names that could carry identifiers are withheld", {
+  expect_equal(safe_field_names(c("value", "stratum", "stn_90001", "-30.12", "a b", "cv2")),
+               c("value", "stratum", "<name withheld>", "<name withheld>", "<name withheld>",
+                 "cv2"))
+})

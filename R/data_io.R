@@ -357,6 +357,7 @@ describe_biotic_file <- function(file) {
     out$level <- level
     out$n_records <- length(nodes)
     out$in_schema <- out$field %in% schema_fields
+    out$field[!out$in_schema] <- safe_field_names(out$field[!out$in_schema])
     out
   })) |>
     dplyr::select("level", "field", "kind", "in_schema", "n_records", "n_present", "n_filled")

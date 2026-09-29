@@ -79,6 +79,15 @@ with_sanitised_errors <- function(expr, log_dir, code, message) {
   result
 }
 
+# Field names are structural, but a wide table pivoted by station would carry
+# identifiers in its column names. Names that are not plain identifiers, or that
+# contain three or more consecutive digits, are therefore withheld from reports.
+safe_field_names <- function(x) {
+  ok <- grepl("^[A-Za-z_][A-Za-z0-9_.]*$", x) & !grepl("[0-9]{3,}", x) & nchar(x) <= 40L
+  x[!ok] <- "<name withheld>"
+  x
+}
+
 # TRUE in a Claude Code cloud session, which sets CLAUDE_CODE_REMOTE.
 in_cloud_session <- function() {
   tolower(Sys.getenv("CLAUDE_CODE_REMOTE")) %in% c("true", "1", "yes")

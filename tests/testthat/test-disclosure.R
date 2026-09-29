@@ -102,6 +102,18 @@ test_that("reports name fields and counts, never values", {
   expect_match(printed, "note")
 })
 
+test_that("column names that could carry identifiers are withheld from the report", {
+  wide <- clean
+  wide[["stn_90001"]] <- 1
+  wide[["-30.12"]] <- 1
+  r <- check_disclosure(wide, support, strata)
+  printed <- paste(utils::capture.output(print(r)), r$fields, collapse = "\n")
+  expect_true("DC-FLD-01" %in% failed(r))
+  expect_false(grepl("90001", printed))
+  expect_false(grepl("-30.12", printed, fixed = TRUE))
+  expect_match(r$fields[r$check_id == "DC-FLD-01"], "<name withheld>", fixed = TRUE)
+})
+
 test_that("stage_export writes a passing export with the outcome recorded", {
   staging <- withr::local_tempdir()
   st <- stage_export(clean, support, strata, "synthetic-run", staging_dir = staging)

@@ -74,7 +74,7 @@ dc_row <- function(check_id, n_rows, fields = NA_character_, description, status
     status = if (is.null(status)) ifelse(n_rows > 0, "fail", "pass") else status,
     n_rows = as.integer(n_rows),
     fields = if (length(fields) == 0L || all(is.na(fields))) NA_character_ else
-      paste(fields, collapse = ", "),
+      paste(unique(safe_field_names(fields)), collapse = ", "),
     description = description
   )
 }
