@@ -209,8 +209,8 @@ Suggests stack pinned with `snapshot.dev`, install the sdmTMB stack, snapshot).
   but departs from the XSD is caught only through the checks above.
 - **Reading speed.** About 2 seconds for 5,000 individuals in the cloud. Large surveys will
   take longer; this can be optimised if it matters.
-- **The positive-station minimum of 3** is a proposal adopted with this milestone; the
-  project lead may raise it. Positive stations are counted by species code
+- **The positive-station minimum of 3** was proposed with this milestone and confirmed by
+  the project lead on 3 October 2026; configurations may raise it. Positive stations are counted by species code
   (`catchcategory`), and the same counts apply to biomass and abundance cells.
 - **Differencing** is checked within one survey, year, species, method and quantity.
   Differencing across quantities, methods or later releases is not checked.
