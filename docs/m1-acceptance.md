@@ -154,8 +154,10 @@ that version). Surveys are labelled, not named.
 
 **Outcome so far.** Both surveys pass the same checks as the synthetic surveys, with no
 failure and no change to the reader. Acceptance check 1 is met for these two surveys; the
-remaining files in the data zone are to be run before M1 is closed, and the result of
-`testthat::test_local()` on the laptop is still to be reported.
+remaining files in the data zone are to be run before M1 is closed.
+
+**Tests on the laptop.** `testthat::test_local()` at commit `03988a1` (Windows, lockfile
+library): `[ FAIL 0 | WARN 0 | SKIP 0 | PASS 181 ]`.
 
 **Adaptations made after these runs (3 October 2026).** No check failed, so nothing had to
 be fixed. The warnings and the list of fields outside the schema led to these additions:
@@ -169,15 +171,34 @@ be fixed. The warnings and the list of fields outside the schema led to these ad
   and `sampleproducttype` codes and tabulates station code combinations;
 - the synthetic generator now follows the NANSIS swept-area convention (`samplequality` 12).
 
-**Still open for M2.** Whether the multi-part catches (`IO-CAT-01`) are additive, how
-raising factors and product types enter the catch totals, and the exact inclusion rule
-(D-09; see [`nansis-codes.md`](nansis-codes.md)).
+**Rerun of real survey B at commit `03988a1`.** 54 checks, 0 fail, 7 warn. The extended
+schema read every new field without conversion failures; the door spread was positive on
+all stations.
+
+- `IO-PLA-01` by length-measurement type (mapping to codes inferred from the report's sort
+  order, to be confirmed): A 14 of 27 flagged, B 215 of 1,559, E 3 of 5,727, H 0 of 9,
+  Y 0 of 9. The warnings sit almost entirely in two measurement types, consistent with
+  non-fish lengths; type E, which covers most fish, has 3 flags, plausibly genuine entry
+  errors. The meanings of the codes are still to be confirmed.
+- `IO-RAI-04`: 1,138 of 3,435 catch samples (33%) have a raising factor other than 1.
+- `haulvalidity`: code 1 on 120 stations and code 3 on 1, which is one of the three aborted
+  tows; the other two aborted tows carry code 1. `samplequality` and `gearcondition` flag
+  all three.
+- `catchproducttype` is 1 on every catch sample, and `sampleproducttype` is 1 wherever it
+  is filled.
+
+**Still open for M2.** Whether the multi-part catches (`IO-CAT-01`) are additive; whether
+`catchweight` already holds the raised catch or the subsample weight to be multiplied by
+`raisingfactor` (a third of catch samples in survey B are raised, so this changes the
+biomass materially; it is to be settled by reproducing the official estimates, D-11); how
+product types enter the catch totals; and the exact inclusion rule (D-09; see
+[`nansis-codes.md`](nansis-codes.md)).
 
 **renv on the laptop.** `renv::status()` reported packages recorded but not used (the
 Suggests and development stack, under `snapshot.type = "implicit"`), the sdmTMB stack not
 installed, and patch-level differences in R's recommended packages and `s2`. None affects
-M1. Tidying the lockfile is left to the project lead, before M1 is merged or at the start of
-M2.
+M1. Decision of 3 October 2026: the lockfile is tidied at the start of M2 (keep the
+Suggests stack pinned with `snapshot.dev`, install the sdmTMB stack, snapshot).
 
 ## 4. Limitations
 

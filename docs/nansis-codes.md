@@ -40,13 +40,20 @@ Counts reported from the laptop, without survey names:
   `samplequality` 12 with `gearcondition` 1, or `samplequality` 5 with `gearcondition` 9
   (aborted tows).
 
+- **Real survey B, further codes** (rerun at commit `03988a1`). `haulvalidity` is 1 on 120
+  stations and 3 on one station, one of the three aborted tows; the other two aborted tows
+  carry 1. `lengthmeasurement` codes A, B, E, H and Y occur, E on most catch samples with
+  lengths; their NMD meanings are still to be confirmed. `catchproducttype` and
+  `sampleproducttype` are 1 throughout.
+
 ## Consequence for the inclusion rules (D-09, M2)
 
 A swept-area estimate would select stations with `samplequality` 12 and a normal
 `gearcondition`, possibly also requiring `stationtype` 12. D-09 requires the rules behind the
 official estimates to be replicated, so the final rule is confirmed against them at M2,
 including whether `haulvalidity` (which BAIT describes as conflated with `samplequality`)
-plays any part.
+plays any part. In survey B it flags only one of the three aborted tows, so on its own it
+would not be a sufficient exclusion rule.
 
 The synthetic generator uses `stationtype` 12, `samplequality` 12 and `gearcondition` 1 for
 its stations.
