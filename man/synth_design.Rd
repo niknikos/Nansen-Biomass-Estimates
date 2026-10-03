@@ -43,7 +43,9 @@ parameters \code{lw_a} and \code{lw_b} (weight in kg, length in m).}
 \item{dg_scale, dg_cv}{Delta-gamma model: the probability of a positive catch
 is \code{1 - exp(-mu / dg_scale)}; positive catches are gamma with this CV.}
 
-\item{swept_width_km}{Swept width of the trawl, in km.}
+\item{swept_width_km}{Mean effective swept width of the trawl, in km. Each
+tow's width varies by up to 10\% around it and is recorded as the door
+spread (\code{trawldoorspread}, in m), so that the field and the catches agree.}
 
 \item{distance_nmi}{Range of towed distances, in nautical miles.}
 

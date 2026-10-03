@@ -9,6 +9,10 @@
 
 # ---- Schema -----------------------------------------------------------------
 
+# Fields are those that version 1 needs. Free-text fields (station, catch and
+# individual comments, mission purpose) are deliberately left out: they can hold
+# anything, and the reader never extracts them.
+#
 # One row per field. `level` is the NMDBiotic element the field belongs to;
 # `source` says whether it is an XML attribute or a child element. Keys are
 # inherited downwards: a station is identified by the mission key plus
@@ -40,6 +44,16 @@ biotic_schema <- function() {
     "station",    "fishstation", "gearcondition",      "character", "element",   FALSE, NA,
     "station",    "fishstation", "samplequality",      "character", "element",   FALSE, NA,
     "station",    "fishstation", "distance",           "double",    "element",   FALSE, "nautical miles",
+    "station",    "fishstation", "stationstopdate",    "date",      "element",   FALSE, NA,
+    "station",    "fishstation", "stationstoptime",    "character", "element",   FALSE, NA,
+    "station",    "fishstation", "fishingdepthmax",    "double",    "element",   FALSE, "m",
+    "station",    "fishstation", "vesselspeed",        "double",    "element",   FALSE, "knots",
+    "station",    "fishstation", "logstart",           "double",    "element",   FALSE, "nautical miles",
+    "station",    "fishstation", "logstop",            "double",    "element",   FALSE, "nautical miles",
+    "station",    "fishstation", "verticaltrawlopening", "double",  "element",   FALSE, "m",
+    "station",    "fishstation", "trawldoorspread",    "double",    "element",   FALSE, "m",
+    "station",    "fishstation", "haulvalidity",       "character", "element",   FALSE, NA,
+    "station",    "fishstation", "gearno",             "integer",   "element",   FALSE, NA,
     "catch",      "catchsample", "catchsampleid",      "integer",   "attribute", TRUE,  NA,
     "catch",      "catchsample", "catchcategory",      "character", "element",   FALSE, NA,
     "catch",      "catchsample", "commonname",         "character", "element",   FALSE, NA,
@@ -50,10 +64,18 @@ biotic_schema <- function() {
     "catch",      "catchsample", "catchcount",         "integer",   "element",   FALSE, NA,
     "catch",      "catchsample", "lengthsampleweight", "double",    "element",   FALSE, "kg",
     "catch",      "catchsample", "lengthsamplecount",  "integer",   "element",   FALSE, NA,
+    "catch",      "catchsample", "scientificname",     "character", "element",   FALSE, NA,
+    "catch",      "catchsample", "lengthmeasurement",  "character", "element",   FALSE, NA,
+    "catch",      "catchsample", "catchproducttype",   "character", "element",   FALSE, NA,
+    "catch",      "catchsample", "sampleproducttype",  "character", "element",   FALSE, NA,
+    "catch",      "catchsample", "raisingfactor",      "double",    "element",   FALSE, NA,
+    "catch",      "catchsample", "specimensamplecount", "integer",  "element",   FALSE, NA,
     "individual", "individual",  "specimenid",         "integer",   "attribute", TRUE,  NA,
     "individual", "individual",  "length",             "double",    "element",   FALSE, "m",
     "individual", "individual",  "individualweight",   "double",    "element",   FALSE, "kg",
-    "individual", "individual",  "sex",                "character", "element",   FALSE, NA
+    "individual", "individual",  "sex",                "character", "element",   FALSE, NA,
+    "individual", "individual",  "lengthresolution",   "character", "element",   FALSE, NA,
+    "individual", "individual",  "individualproducttype", "character", "element", FALSE, NA
   )
 }
 
@@ -302,14 +324,19 @@ print.nb_survey <- function(x, ...) {
 #' reader can be adapted to real files without the data leaving the data zone.
 #' It reports the namespace, the number of elements at each level, which fields
 #' occur and how often they are filled, and how often each quality code occurs
-#' (`stationtype`, `samplequality`, `gearcondition`), for the station
-#' inclusion rules (D-09).
+#' (`stationtype`, `samplequality`, `gearcondition`, `haulvalidity`,
+#' `lengthmeasurement`, `catchproducttype`, `sampleproducttype`), for the
+#' station inclusion rules (D-09). Anything in a code field that does not look
+#' like a short code is withheld.
 #'
 #' @inheritParams read_survey
 #' @return An `nb_description` object: a list with `namespace` (string),
 #'   `elements` (tibble of element names and counts), `fields` (tibble of level,
 #'   field, kind, whether it is in the schema, number of records and number
-#'   filled) and `codes` (tibble of field, code and count).
+#'   filled), `codes` (tibble of level, field, code and count, for the station
+#'   and catch-sample reference codes) and `station_codes` (counts of each
+#'   combination of `stationtype`, `samplequality`, `gearcondition` and
+#'   `haulvalidity`).
 #' @export
 #' @examples
 #' root <- tempfile("nansen-root-")
@@ -361,18 +388,39 @@ describe_biotic_file <- function(file) {
     out
   })) |>
     dplyr::select("level", "field", "kind", "in_schema", "n_records", "n_present", "n_filled")
-  codes <- dplyr::bind_rows(lapply(c("stationtype", "samplequality", "gearcondition"), function(f) {
-    txt <- xml2::xml_text(xml2::xml_find_all(doc, paste0("//fishstation/", f)))
-    n_stations <- length(xml2::xml_find_all(doc, "//fishstation"))
-    counts <- tibble::tibble(code = trimws(txt)) |> dplyr::count(.data$code)
-    missing <- n_stations - sum(counts$n)
-    if (missing > 0L) counts <- dplyr::bind_rows(counts, tibble::tibble(code = NA, n = missing))
-    dplyr::mutate(counts, field = f, .before = 1)
+  code_fields <- list(
+    fishstation = c("stationtype", "samplequality", "gearcondition", "haulvalidity"),
+    catchsample = c("lengthmeasurement", "catchproducttype", "sampleproducttype")
+  )
+  per_level <- lapply(names(code_fields), function(level) {
+    nodes <- xml2::xml_find_all(doc, paste0("//", level))
+    vals <- lapply(code_fields[[level]], function(f) safe_codes(code_text(nodes, f)))
+    names(vals) <- code_fields[[level]]
+    tibble::as_tibble(vals)
+  })
+  names(per_level) <- names(code_fields)
+  codes <- dplyr::bind_rows(lapply(names(code_fields), function(level) {
+    dplyr::bind_rows(lapply(code_fields[[level]], function(f) {
+      tibble::tibble(code = per_level[[level]][[f]]) |>
+        dplyr::count(.data$code) |>
+        dplyr::mutate(level = level, field = f, .before = 1)
+    }))
   }))
+  station_codes <- per_level$fishstation |>
+    dplyr::count(.data$stationtype, .data$samplequality, .data$gearcondition, .data$haulvalidity)
   structure(
-    list(namespace = namespace, elements = elements, fields = fields, codes = codes),
+    list(namespace = namespace, elements = elements, fields = fields, codes = codes,
+         station_codes = station_codes),
     class = "nb_description"
   )
+}
+
+# Trimmed text of one child element per node; NA where it is absent or empty.
+code_text <- function(nodes, field) {
+  child <- xml2::xml_find_first(nodes, field)
+  out <- trimws(xml2::xml_text(child))
+  out[is.na(child) | !nzchar(out)] <- NA_character_
+  out
 }
 
 #' @export
@@ -381,8 +429,10 @@ print.nb_description <- function(x, ...) {
   cat("Namespace:", x$namespace, "\n\n")
   cat("Fields by level:\n")
   print(x$fields, n = Inf)
-  cat("\nQuality codes on fishstation (counts):\n")
+  cat("\nReference codes (counts):\n")
   print(x$codes, n = Inf)
+  cat("\nStation code combinations (counts):\n")
+  print(x$station_codes, n = Inf)
   invisible(x)
 }
 
@@ -541,6 +591,9 @@ validate_survey <- function(x) {
   v <- col_or_na(st, "bottomdepthstart")
   add("IO-VAL-06", "station", "bottomdepthstart", "fail", sum(!is.na(v)), n_outside(v, v > 0),
       "Bottom depth positive")
+  v <- col_or_na(st, "trawldoorspread")
+  add("IO-VAL-08", "station", "trawldoorspread", "fail", sum(!is.na(v)), n_outside(v, v > 0),
+      "Door spread positive")
   yr <- dplyr::left_join(
     st[intersect(c(table_keys("station"), "stationstartdate"), names(st))],
     x$mission[table_keys("mission")],
@@ -555,12 +608,29 @@ validate_survey <- function(x) {
   v <- col_or_na(ind, "length")
   add("IO-UNIT-01", "individual", "length", "warn", sum(!is.na(v)), n_outside(v, v <= 3),
       "Length above 3 m: probably recorded in cm, not m")
+  # Condition factor, reported by length-measurement type: carapace, mantle or
+  # diameter lengths (shellfish, cephalopods, jellyfish) give extreme values that
+  # are not entry errors.
   w_g <- col_or_na(ind, "individualweight") * 1000
   l_cm <- col_or_na(ind, "length") * 100
   k <- 100 * w_g / l_cm^3
-  add("IO-PLA-01", "individual", "length, individualweight", "warn", sum(is.finite(k)),
-      n_outside(k[is.finite(k)], k[is.finite(k)] >= 0.02 & k[is.finite(k)] <= 10),
-      "Condition factor outside 0.02 to 10: probable unit or entry error")
+  measurement <- rep(NA_character_, nrow(ind))
+  if (all(c(table_keys("catch"), "lengthmeasurement") %in% names(ca)) &&
+      all(table_keys("catch") %in% names(ind)) && nrow(ind) > 0L) {
+    lm <- dplyr::left_join(ind[table_keys("catch")],
+                           ca[c(table_keys("catch"), "lengthmeasurement")],
+                           by = table_keys("catch"))
+    measurement <- safe_codes(lm$lengthmeasurement)
+  }
+  finite <- is.finite(k)
+  groups <- sort(unique(measurement[finite]), na.last = TRUE)
+  if (length(groups) == 0L) groups <- NA_character_
+  for (g in groups) {
+    in_g <- finite & (if (is.na(g)) is.na(measurement) else measurement %in% g)
+    add("IO-PLA-01", "individual", paste0("lengthmeasurement = ", ifelse(is.na(g), "NA", g)),
+        "warn", sum(in_g), n_outside(k[in_g], k[in_g] >= 0.02 & k[in_g] <= 10),
+        "Condition factor outside 0.02 to 10, by length-measurement type")
+  }
 
   # Catch parts and raising inputs (BAIT, knowledge/sampling-units.md)
   part_keys <- c(table_keys("station"), "catchcategory")
@@ -599,6 +669,10 @@ validate_survey <- function(x) {
   }
   add("IO-RAI-03", "catch", "lengthsamplecount", "warn", n_compared, n_mismatch,
       "Individuals measured for length match the length sample count")
+  rf <- col_or_na(ca, "raisingfactor")
+  add("IO-RAI-04", "catch", "raisingfactor", "warn", sum(!is.na(rf)),
+      n_outside(rf, abs(rf - 1) < 1e-9),
+      "Raising factor other than 1: catch measured on a subsample, to be raised")
 
   # Completeness of the fields swept-area estimation needs
   needed <- list(
@@ -629,12 +703,12 @@ new_validation <- function(rows) {
 
 #' @export
 print.nb_validation <- function(x, ...) {
-  n_fail <- sum(x$status == "fail")
-  n_warn <- sum(x$status == "warn")
+  n_fail <- sum(x$status %in% "fail")
+  n_warn <- sum(x$status %in% "warn")
   overall <- if (n_fail > 0) "FAIL" else if (n_warn > 0) "PASS with warnings" else "PASS"
   cat(sprintf("<nb_validation> %s: %d checks, %d fail, %d warn (counts only, no values)\n",
               overall, nrow(x), n_fail, n_warn))
-  print(tibble::as_tibble(unclass_validation(x))[c("check_id", "table", "field", "status",
-                                                   "n_checked", "n_failed")], n = Inf)
+  shown <- intersect(c("check_id", "table", "field", "status", "n_checked", "n_failed"), names(x))
+  print(tibble::as_tibble(unclass_validation(x))[shown], n = Inf)
   invisible(x)
 }

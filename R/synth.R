@@ -31,7 +31,9 @@ synth_crs <- function(design) {
 #' @param tweedie_p,tweedie_phi Power and dispersion of the Tweedie model.
 #' @param dg_scale,dg_cv Delta-gamma model: the probability of a positive catch
 #'   is `1 - exp(-mu / dg_scale)`; positive catches are gamma with this CV.
-#' @param swept_width_km Swept width of the trawl, in km.
+#' @param swept_width_km Mean effective swept width of the trawl, in km. Each
+#'   tow's width varies by up to 10% around it and is recorded as the door
+#'   spread (`trawldoorspread`, in m), so that the field and the catches agree.
 #' @param distance_nmi Range of towed distances, in nautical miles.
 #' @param split_prob Probability that a positive catch is recorded as two
 #'   disjoint catch parts.
@@ -99,7 +101,9 @@ synth_design <- function(
         missiontype = "4", platform = "9999", missionnumber = 1L,
         cruise = "SYNTH0001", platformname = "SYNTHETIC"
       ),
-      station_codes = list(stationtype = "12", samplequality = "1", gearcondition = "1",
+      # NANSIS conventions for a preselected swept-area bottom-trawl station:
+      # stationtype 12, samplequality 12 (usable for biomass analysis), gear OK.
+      station_codes = list(stationtype = "12", samplequality = "12", gearcondition = "1",
                            gear = "9999")
     ),
     class = "nb_synth_design"
@@ -218,13 +222,15 @@ make_stations <- function(design) {
   distance <- round(stats::runif(n, design$distance_nmi[1], design$distance_nmi[2]), 2)
   heading <- stats::runif(n, 0, 2 * pi)
   dist_km <- distance * 1.852
+  door_m <- round(design$swept_width_km * 1000 * stats::runif(n, 0.9, 1.1), 1)
   tibble::tibble(
     stratum = st$stratum[idx],
     x = x, y = y,
     x_end = x + dist_km * sin(heading),
     y_end = y + dist_km * cos(heading),
     distance = distance,
-    swept_area_km2 = dist_km * design$swept_width_km
+    trawldoorspread = door_m,
+    swept_area_km2 = dist_km * door_m / 1000
   )
 }
 
@@ -337,7 +343,11 @@ synth_survey_impl <- function(design, seed) {
   end <- to_lonlat(stations$x_end, stations$y_end, crs)
   m <- design$mission
   dates <- as.Date(sprintf("%d-05-01", design$year)) + (seq_len(n_st) - 1L) %/% 4L
-  times <- sprintf("%02d:%02d:00.000Z", 6L + 3L * ((seq_len(n_st) - 1L) %% 4L), 15L)
+  hours <- 6L + 3L * ((seq_len(n_st) - 1L) %% 4L)
+  times <- sprintf("%02d:15:00.000Z", hours)
+  stop_times <- sprintf("%02d:45:00.000Z", hours)
+  # Tows last 30 minutes; the log runs on from an arbitrary 1000 nmi.
+  log_start <- round(1000 + cumsum(c(0, stations$distance[-n_st] + 20)), 2)
   mission_keys <- tibble::tibble(missiontype = m$missiontype, startyear = design$year,
                                  platform = m$platform, missionnumber = m$missionnumber)
   station <- tibble::tibble(
@@ -355,7 +365,17 @@ synth_survey_impl <- function(design, seed) {
     gear = design$station_codes$gear,
     gearcondition = design$station_codes$gearcondition,
     samplequality = design$station_codes$samplequality,
-    distance = stations$distance
+    distance = stations$distance,
+    stationstopdate = dates,
+    stationstoptime = stop_times,
+    fishingdepthmax = NA_real_,
+    vesselspeed = round(stations$distance / 0.5, 1),
+    logstart = log_start,
+    logstop = log_start + stations$distance,
+    verticaltrawlopening = round(stats::runif(n_st, 4.5, 5.5), 1),
+    trawldoorspread = stations$trawldoorspread,
+    haulvalidity = NA_character_,
+    gearno = NA_integer_
   )
   stations$serialnumber <- station$serialnumber
 
@@ -396,7 +416,13 @@ synth_survey_impl <- function(design, seed) {
           catchweight = parts[k],
           catchcount = count,
           lengthsampleweight = round(ls_weight, 3),
-          lengthsamplecount = n_meas
+          lengthsamplecount = n_meas,
+          scientificname = paste("Synthetica", tolower(sp$species_code)),
+          lengthmeasurement = NA_character_,
+          catchproducttype = NA_character_,
+          sampleproducttype = NA_character_,
+          raisingfactor = 1,
+          specimensamplecount = n_meas
         )
         ind_rows[[catchsampleid]] <- tibble::tibble(
           serialnumber = station$serialnumber[j],
@@ -404,7 +430,9 @@ synth_survey_impl <- function(design, seed) {
           specimenid = seq_len(n_meas),
           length = fish$length,
           individualweight = fish$individualweight,
-          sex = fish$sex
+          sex = fish$sex,
+          lengthresolution = NA_character_,
+          individualproducttype = NA_character_
         )
       }
     }
@@ -440,7 +468,8 @@ synth_survey_impl <- function(design, seed) {
                           namespace = "http://www.imr.no/formats/nmdbiotic/v3.1")
   sv$truth <- true_values(sv, grid)
   sv$strata <- strata_polygons(design, crs)
-  sv$stations <- stations[c("serialnumber", "stratum", "x", "y", "distance", "swept_area_km2")]
+  sv$stations <- stations[c("serialnumber", "stratum", "x", "y", "distance", "trawldoorspread",
+                            "swept_area_km2")]
   structure(
     sv[c("survey", "truth", "strata", "stations", "crs", "fields", "design", "seed")],
     class = "nb_synth"

@@ -88,6 +88,15 @@ safe_field_names <- function(x) {
   x
 }
 
+# Reference codes (station type, sample quality, length measurement and the
+# like) are structural and may be reported with their counts. Anything that does
+# not look like a short code is withheld, in case a field holds free text.
+safe_codes <- function(x) {
+  ok <- is.na(x) | grepl("^[A-Za-z0-9_.-]{1,8}$", x)
+  x[!ok] <- "<code withheld>"
+  x
+}
+
 # TRUE in a Claude Code cloud session, which sets CLAUDE_CODE_REMOTE.
 in_cloud_session <- function() {
   tolower(Sys.getenv("CLAUDE_CODE_REMOTE")) %in% c("true", "1", "yes")

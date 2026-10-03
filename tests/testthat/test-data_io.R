@@ -62,6 +62,10 @@ test_that("read_survey() and describe_biotic() work under a data root", {
                            "n_filled"))
   expect_true(all(d$fields$in_schema))
   expect_equal(d$codes$code[d$codes$field == "stationtype"], "12")
+  expect_equal(d$codes$code[d$codes$field == "samplequality"], "12")
+  expect_equal(d$station_codes$n, nrow(sv$survey$station))
+  expect_named(d$station_codes, c("stationtype", "samplequality", "gearcondition",
+                                  "haulvalidity", "n"))
   expect_false(dir.exists(file.path(root, "logs")))
 })
 
@@ -109,6 +113,40 @@ test_that("corrupted surveys fail the expected checks", {
     d
   }))
   expect_equal(status_of(v, "IO-VAL-07"), "fail")
+
+  v <- validate_survey(corrupt("station", function(d) {
+    d$trawldoorspread[1] <- 0
+    d
+  }))
+  expect_equal(status_of(v, "IO-VAL-08"), "fail")
+
+  v <- validate_survey(corrupt("catch", function(d) {
+    d$raisingfactor[1:2] <- 4
+    d
+  }))
+  row <- v[v$check_id == "IO-RAI-04", ]
+  expect_equal(row$status, "warn")
+  expect_equal(row$n_failed, 2L)
+})
+
+test_that("condition-factor warnings are reported by length-measurement type", {
+  x <- sv$survey
+  x$catch$lengthmeasurement <- "A"
+  shell <- x$catch$catchsampleid[1:3]
+  x$catch$lengthmeasurement[x$catch$catchsampleid %in% shell] <- "B"
+  in_shell <- x$individual$catchsampleid %in% shell
+  x$individual$length[in_shell] <- x$individual$length[in_shell] / 10
+  v <- validate_survey(x)
+  pla <- v[v$check_id == "IO-PLA-01", ]
+  expect_setequal(pla$field, c("lengthmeasurement = A", "lengthmeasurement = B"))
+  expect_equal(pla$status[pla$field == "lengthmeasurement = A"], "pass")
+  expect_equal(pla$status[pla$field == "lengthmeasurement = B"], "warn")
+  expect_equal(pla$n_failed[pla$field == "lengthmeasurement = B"], sum(in_shell))
+})
+
+test_that("anything that is not a short code is withheld from code reports", {
+  expect_equal(safe_codes(c("12", "C", NA, "E-2", "a free text comment", "123456789")),
+               c("12", "C", NA, "E-2", "<code withheld>", "<code withheld>"))
 })
 
 test_that("values that cannot be converted are counted, not echoed", {
@@ -145,6 +183,11 @@ test_that("files that are not NMDBiotic v3 are refused by code", {
              file.path(root, "other.xml"))
   cnd <- expect_error(read_survey("other.xml", root = root), class = "nansenbiomass_error")
   expect_equal(cnd$nb_code, "IO-READ-02")
+})
+
+test_that("a validation report still prints after its columns are subset", {
+  v <- validate_survey(sv$survey)
+  expect_output(print(v[v$status != "pass", c("check_id", "status", "n_failed")]), "IO-CAT-01")
 })
 
 test_that("printing a survey shows counts, never values", {

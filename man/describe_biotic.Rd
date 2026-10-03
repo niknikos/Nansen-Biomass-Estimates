@@ -15,15 +15,20 @@ describe_biotic(path, root = data_root())
 An \code{nb_description} object: a list with \code{namespace} (string),
 \code{elements} (tibble of element names and counts), \code{fields} (tibble of level,
 field, kind, whether it is in the schema, number of records and number
-filled) and \code{codes} (tibble of field, code and count).
+filled), \code{codes} (tibble of level, field, code and count, for the station
+and catch-sample reference codes) and \code{station_codes} (counts of each
+combination of \code{stationtype}, \code{samplequality}, \code{gearcondition} and
+\code{haulvalidity}).
 }
 \description{
 Summarises a biotic.xml file without returning any of its values, so that the
 reader can be adapted to real files without the data leaving the data zone.
 It reports the namespace, the number of elements at each level, which fields
 occur and how often they are filled, and how often each quality code occurs
-(\code{stationtype}, \code{samplequality}, \code{gearcondition}), for the station
-inclusion rules (D-09).
+(\code{stationtype}, \code{samplequality}, \code{gearcondition}, \code{haulvalidity},
+\code{lengthmeasurement}, \code{catchproducttype}, \code{sampleproducttype}), for the
+station inclusion rules (D-09). Anything in a code field that does not look
+like a short code is withheld.
 }
 \examples{
 root <- tempfile("nansen-root-")

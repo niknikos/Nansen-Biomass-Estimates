@@ -26,6 +26,11 @@ test_that("units follow NMDBiotic: length in m, weights in kg", {
   k <- 100 * (ind$individualweight * 1000) / (ind$length * 100)^3
   expect_true(all(k > 0.2 & k < 5))
   expect_true(all(sv$survey$station$stationtype == "12"))
+  expect_true(all(sv$survey$station$samplequality == "12"))
+  expect_true(all(sv$survey$catch$raisingfactor == 1))
+  st <- sv$survey$station
+  expect_true(all(abs(st$trawldoorspread - 20) <= 2.05))
+  expect_equal(sv$stations$swept_area_km2, st$distance * 1.852 * st$trawldoorspread / 1000)
   expect_true(all(sv$survey$station$distance >= 1.4 & sv$survey$station$distance <= 1.6))
 })
 
